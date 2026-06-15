@@ -102,6 +102,28 @@ const SYMPTOM_PHRASES = {
 };
 
 /**
+ * Check if two strings are similar using word overlap
+ * @param {string} str1 - First string
+ * @param {string} str2 - Second string
+ * @returns {number} - Similarity score (0-1)
+ */
+function calculateSimilarity(str1, str2) {
+  const words1 = str1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  const words2 = str2.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  
+  if (words1.length === 0 || words2.length === 0) return 0;
+  
+  let matches = 0;
+  for (const word of words1) {
+    if (words2.some(w => w.includes(word) || word.includes(w))) {
+      matches++;
+    }
+  }
+  
+  return matches / Math.max(words1.length, words2.length);
+}
+
+/**
  * Generate bilingual script from user's health concerns
  * @param {string[]} healthConcerns - Array of user's health concern statements
  * @param {string} language - Target language for translation
@@ -113,7 +135,7 @@ export function generateBilingualScript(healthConcerns, language) {
   }
 
   const script = healthConcerns.map(concern => {
-    // Try to find exact match
+    // Try to find exact match first
     const exactMatch = SYMPTOM_PHRASES[concern];
     if (exactMatch && exactMatch[language]) {
       return {
@@ -123,16 +145,24 @@ export function generateBilingualScript(healthConcerns, language) {
       };
     }
 
-    // Try partial match (case-insensitive)
+    // Try partial match with word-level similarity (only if score > 0.5)
+    let bestMatch = null;
+    let bestScore = 0;
+
     for (const [phrase, translations] of Object.entries(SYMPTOM_PHRASES)) {
-      if (concern.toLowerCase().includes(phrase.toLowerCase()) || 
-          phrase.toLowerCase().includes(concern.toLowerCase())) {
-        return {
-          english: concern,
-          translated: translations[language] || phrase,
-          language: language,
-        };
+      const score = calculateSimilarity(concern, phrase);
+      if (score > bestScore && score > 0.4) {
+        bestScore = score;
+        bestMatch = translations;
       }
+    }
+
+    if (bestMatch) {
+      return {
+        english: concern,
+        translated: bestMatch[language] || concern,
+        language: language,
+      };
     }
 
     // If no match found, return the original text
