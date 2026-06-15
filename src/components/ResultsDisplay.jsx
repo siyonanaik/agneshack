@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { t } from '../utils/translations';
 
 // Status badge color mapping
 const statusConfig = {
@@ -20,7 +21,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function FindingsCard({ findings }) {
+function FindingsCard({ findings, language = 'English' }) {
   if (!findings || findings.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -28,7 +29,7 @@ function FindingsCard({ findings }) {
           <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          Key Findings
+          {t(language, 'keyFindings')}
         </h3>
         <p className="text-sm text-gray-400 italic">No findings available.</p>
       </div>
@@ -41,7 +42,7 @@ function FindingsCard({ findings }) {
         <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        Key Findings
+        {t(language, 'keyFindings')}
       </h3>
       <div className="space-y-3">
         {findings.map((finding, index) => {
@@ -61,7 +62,7 @@ function FindingsCard({ findings }) {
   );
 }
 
-function QuestionsCard({ questions }) {
+function QuestionsCard({ questions, language = 'English' }) {
   if (!questions || questions.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -69,7 +70,7 @@ function QuestionsCard({ questions }) {
           <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Questions for Your Doctor
+          {t(language, 'questionsForDoctor')}
         </h3>
         <p className="text-sm text-gray-400 italic">No questions available.</p>
       </div>
@@ -82,7 +83,7 @@ function QuestionsCard({ questions }) {
         <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        Questions for Your Doctor
+        {t(language, 'questionsForDoctor')}
       </h3>
       <ol className="space-y-2.5">
         {questions.map((question, index) => (
@@ -367,11 +368,11 @@ function ResultsDisplay({ aiResponse, fileName, language, onReset, onCopy, onDow
           )}
 
           {/* Findings */}
-          <FindingsCard findings={findings} />
+          <FindingsCard findings={findings} language={language} />
 
           {/* Questions */}
           <div className="mt-4">
-            <QuestionsCard questions={questions} />
+            <QuestionsCard questions={questions} language={language} />
           </div>
         </div>
       </div>
