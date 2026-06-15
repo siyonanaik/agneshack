@@ -3,7 +3,13 @@ import { generateBilingualScript, getSamplePhrases } from '../utils/bilingualScr
 import { t } from '../utils/translations';
 
 function PrepareForClinic({ healthConcerns, setHealthConcerns, language, aiResponse }) {
-  const [selectedLanguage, setSelectedLanguage] = useState('Bengali');
+  // Map response language to translation target language
+  const getDefaultTargetLang = () => {
+    // If user selected Bengali response language, use Bengali translations
+    // Otherwise default to Bengali as the fallback for migrant workers
+    return 'Bengali';
+  };
+  const [selectedLanguage, setSelectedLanguage] = useState(getDefaultTargetLang());
   const [copied, setCopied] = useState(false);
   const [newConcern, setNewConcern] = useState('');
 

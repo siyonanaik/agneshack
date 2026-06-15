@@ -369,11 +369,6 @@ function ResultsDisplay({ aiResponse, fileName, language, onReset, onCopy, onDow
 
           {/* Findings */}
           <FindingsCard findings={findings} language={language} />
-
-          {/* Questions */}
-          <div className="mt-4">
-            <QuestionsCard questions={questions} language={language} />
-          </div>
         </div>
       </div>
 
