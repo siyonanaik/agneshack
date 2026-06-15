@@ -1,9 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import UploadZone from './components/UploadZone';
 import ResultsDisplay from './components/ResultsDisplay';
-import HistoryPanel from './components/HistoryPanel';
+import ProfileSettings from './components/ProfileSettings';
+import PatientHistory from './components/PatientHistory';
+import CameraScanner from './components/CameraScanner';
+import VideoExplanation from './components/VideoExplanation';
+import RoadmapView from './components/RoadmapView';
+import PrepareForClinic from './components/PrepareForClinic';
 import sendToAgnes from './utils/agnesApi';
-import { saveToHistory, getHistory, getSavedLanguage, saveLanguage, clearHistory } from './utils/storage';
+import { saveToHistory, getSavedLanguage, saveLanguage, clearHistory } from './utils/storage';
+import { getProfile } from './utils/profile';
+import { t } from './utils/translations';
 
 // Supported languages for MediClear
 const SUPPORTED_LANGUAGES = [
@@ -40,23 +47,36 @@ function App() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [language, setLanguage] = useState(() => getSavedLanguage());
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [healthConcerns, setHealthConcerns] = useState([]);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [profileData, setProfileData] = useState(null);
   const exportCardRef = useRef(null);
+
+  // Load profile on mount
+  useEffect(() => {
+    const savedProfile = getProfile();
+    if (savedProfile) {
+      setProfileData(savedProfile);
+    }
+  }, []);
 
   // Persist language to localStorage whenever it changes
   useEffect(() => {
     saveLanguage(language);
   }, [language]);
 
-  // Handle when text is extracted from upload zone
+  // Handle when text is extracted from upload zone or camera
   const handleTextExtracted = useCallback((text, name) => {
     setExtractedText(text);
-    setFileName(name);
+    setFileName(name || 'Camera Capture');
     setAiResponse(null);
     setErrorMessage(null);
     setAppState('analyzing');
 
-    sendToAgnes(text, language)
+    // Send to Agnes with health concerns context
+    sendToAgnes(text, language, { healthConcerns })
       .then((response) => {
         if (!response || typeof response !== 'object') {
           setAppState('error');
@@ -69,7 +89,7 @@ function App() {
 
         saveToHistory({
           id: generateId(),
-          fileName: name,
+          fileName: name || 'Camera Capture',
           date: new Date().toISOString(),
           resultPreview: response.summary?.substring(0, 150) + (response.summary?.length > 150 ? '...' : '') || 'Analysis complete',
           fullResponse: response,
@@ -100,6 +120,7 @@ function App() {
     setAiResponse(null);
     setErrorMessage(null);
     setFileName(null);
+    setHealthConcerns([]);
   }, []);
 
   // Handle selecting a history entry
@@ -120,11 +141,17 @@ function App() {
     setLanguage(entry.language || 'English');
     setAppState('success');
     setExtractedText(null);
+    setPatientHistoryOpen(false);
   }, []);
 
   // Handle clear all history
   const handleClearHistory = useCallback(() => {
     clearHistory();
+  }, []);
+
+  // Handle profile save
+  const handleProfileSave = useCallback((profile) => {
+    setProfileData(profile);
   }, []);
 
   // Handle download to PNG
@@ -176,15 +203,34 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      {/* History Panel */}
-      <HistoryPanel
-        isOpen={historyOpen}
-        onToggle={() => setHistoryOpen(!historyOpen)}
-        onClearAll={handleClearHistory}
+      {/* Profile Settings Modal */}
+      <ProfileSettings
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onSave={handleProfileSave}
+        profileData={profileData}
       />
 
+      {/* Patient History Panel */}
+      <PatientHistory
+        isOpen={patientHistoryOpen}
+        onClose={() => setPatientHistoryOpen(false)}
+        onSelectEntry={handleHistorySelect}
+      />
+
+      {/* Camera Scanner Full Screen */}
+      {cameraOpen && (
+        <CameraScanner
+          onTextExtracted={(text, name) => {
+            setCameraOpen(false);
+            handleTextExtracted(text, name);
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
-      <div className={`${historyOpen ? 'ml-80' : ''} transition-all duration-200`}>
+      <div className="transition-all duration-200">
         {/* Header */}
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 sticky top-0 z-30">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -195,13 +241,51 @@ function App() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-800 tracking-tight">MediClear</h1>
-                <p className="text-xs text-gray-400 -mt-0.5">AI Medical Report Analyzer</p>
+                <h1 className="text-lg font-bold text-gray-800 tracking-tight">{t(language, 'appName')}</h1>
+                <p className="text-xs text-gray-400 -mt-0.5">{t(language, 'appSubtitle')}</p>
               </div>
             </div>
 
-            {/* Language Toggle */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-2">
+              {/* Camera Button */}
+              <button
+                onClick={() => setCameraOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all duration-200 text-xs font-medium shadow-sm"
+                title="Scan documents with camera"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="hidden sm:inline">{t(language, 'scan')}</span>
+              </button>
+
+              {/* Profile Button */}
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
+                title="Patient Profile"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="hidden sm:inline">{t(language, 'profile')}</span>
+              </button>
+
+              {/* History Button */}
+              <button
+                onClick={() => setPatientHistoryOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
+                title="View History"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="hidden sm:inline">{t(language, 'history')}</span>
+              </button>
+
+              {/* Language Toggle */}
               <div className="hidden sm:flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
                 <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.52 18.52 0 0112 13a18.52 18.52 0 01-3.048.5" />
@@ -227,7 +311,7 @@ function App() {
         <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Mobile Language Selector */}
           <div className="sm:hidden mb-6">
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Response Language</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">{t(language, 'responseLanguage')}</label>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
@@ -244,19 +328,38 @@ function App() {
 
           {/* State: Idle - Show Upload Zone */}
           {appState === 'idle' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Hero Section */}
               <div className="text-center max-w-lg mx-auto">
                 <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-medium px-3 py-1 rounded-full mb-4">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                  Powered by Agnes AI
+                  {t(language, 'poweredByAgnes')}
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
-                  Analyze Your Medical Reports
+                  {t(language, 'uploadTitle')}
                 </h2>
                 <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
-                  Upload a PDF or image of your medical report and get instant AI-powered analysis and translation.
+                  {t(language, 'uploadSubtitle')}
                 </p>
+              </div>
+
+              {/* Health Concerns Section */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-3 border-b border-indigo-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                    <h3 className="text-sm font-semibold text-indigo-700">{t(language, 'healthConcerns')}</h3>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-gray-500 mb-4">{t(language, 'healthConcernsSubtitle')}</p>
+                  <PrepareForClinic
+                    healthConcerns={healthConcerns}
+                    setHealthConcerns={setHealthConcerns}
+                    language={language}
+                    aiResponse={aiResponse}
+                  />
+                </div>
               </div>
 
               {/* Upload Zone */}
@@ -277,7 +380,7 @@ function App() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-700 truncate">{fileName}</p>
                     <p className="text-xs text-gray-400">
-                      {appState === 'extracting' ? 'Extracting text...' : 'Analyzing with Agnes AI...'}
+                      {appState === 'extracting' ? t(language, 'extractingText') + '...' : t(language, 'processingData')}
                     </p>
                   </div>
                   <button
@@ -327,15 +430,54 @@ function App() {
 
           {/* State: Success - Show Results */}
           {appState === 'success' && aiResponse && (
-            <ResultsDisplay
-              aiResponse={aiResponse}
-              fileName={fileName}
-              language={language}
-              onReset={handleReset}
-              onCopy={() => {}}
-              onDownloadPNG={handleDownloadPNG}
-              exportCardRef={exportCardRef}
-            />
+            <div className="space-y-6">
+              <ResultsDisplay
+                aiResponse={aiResponse}
+                fileName={fileName}
+                language={language}
+                onReset={handleReset}
+                onCopy={() => {}}
+                onDownloadPNG={handleDownloadPNG}
+                exportCardRef={exportCardRef}
+              />
+
+              {/* Questions for Your Doctor - Displayed separately */}
+              {aiResponse.questions && aiResponse.questions.length > 0 && (
+                <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-3 border-b border-indigo-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <h3 className="text-sm font-semibold text-indigo-700">{t(language, 'questionsForDoctor')}</h3>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <ol className="space-y-3">
+                      {aiResponse.questions.map((question, index) => (
+                        <li key={index} className="flex items-start gap-3">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs font-semibold flex items-center justify-center mt-0.5">
+                            {index + 1}
+                          </span>
+                          <p className="text-sm text-gray-700 leading-relaxed">{question}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              )}
+              
+              {/* Video Explanations */}
+              <VideoExplanation 
+                findings={aiResponse.findings || []} 
+                language={language}
+              />
+              
+              {/* Health Roadmap - Lifestyle, Timeline, Actions */}
+              <RoadmapView 
+                aiResponse={aiResponse} 
+                profile={profileData}
+                language={language}
+              />
+            </div>
           )}
 
           {/* State: Error - Show Error State */}
@@ -375,7 +517,7 @@ function App() {
                             setAiResponse(null);
                             setErrorMessage(null);
                             setAppState('analyzing');
-                            sendToAgnes(extractedText, language)
+                            sendToAgnes(extractedText, language, { healthConcerns })
                               .then((response) => {
                                 setAiResponse(response);
                                 setAppState('success');
@@ -410,7 +552,7 @@ function App() {
         <footer className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           <div className="border-t border-gray-200/60 pt-6 text-center">
             <p className="text-xs text-gray-400">
-              MediClear — AI-powered medical report analysis. Not a substitute for professional medical advice.
+              {t(language, 'footerText')}
             </p>
           </div>
         </footer>
