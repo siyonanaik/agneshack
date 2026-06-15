@@ -1,174 +1,302 @@
 import { useState, useEffect } from 'react';
-import { matchVideosToFindings } from '../data/videoLibrary';
-
-function VideoCard({ video, isActive, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      className={`rounded-xl border overflow-hidden cursor-pointer transition-all ${
-        isActive
-          ? 'border-blue-400 ring-2 ring-blue-200 shadow-md'
-          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-      }`}
-    >
-      {/* Thumbnail area */}
-      <div className="relative bg-gray-900" style={{ paddingTop: '56.25%' }}>
-        {video.thumbnail ? (
-          <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-            <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-        )}
-        <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-          {video.duration || '5:00'}
-        </span>
-        {isActive && (
-          <span className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-            Playing
-          </span>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="p-3 bg-white">
-        <h4 className="text-sm font-semibold text-gray-800 line-clamp-1">{video.title}</h4>
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{video.description}</p>
-        <div className="flex items-center gap-2 mt-2">
-          {video.language && (
-            <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">
-              {video.language}
-            </span>
-          )}
-          {video.category && (
-            <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-              {video.category}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function VideoPlayer({ video }) {
-  if (!video) return null;
-
-  const isYouTube = video.url && (video.url.includes('youtube') || video.url.includes('youtu.be'));
-  const isVimeo = video.url && video.url.includes('vimeo');
-
-  return (
-    <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-black">
-      <div className="relative" style={{ paddingTop: '56.25%' }}>
-        {isYouTube ? (
-          <iframe
-            src={video.url}
-            title={video.title}
-            className="absolute inset-0 w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        ) : isVimeo ? (
-          <iframe
-            src={video.url}
-            title={video.title}
-            className="absolute inset-0 w-full h-full"
-            allowFullScreen
-          />
-        ) : (
-          <video
-            controls
-            autoPlay
-            className="absolute inset-0 w-full h-full"
-            src={video.url}
-          >
-            Your browser does not support video playback.
-          </video>
-        )}
-      </div>
-      <div className="p-4 bg-white">
-        <h3 className="text-sm font-semibold text-gray-800">{video.title}</h3>
-        <p className="text-xs text-gray-500 mt-1">{video.description}</p>
-      </div>
-    </div>
-  );
-}
+import { createVideoTask, pollForVideoCompletion } from '../utils/videoApi';
 
 function VideoExplanation({ findings, language = 'English' }) {
-  const [videos, setVideos] = useState([]);
-  const [activeVideo, setActiveVideo] = useState(null);
-  const [showList, setShowList] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoId, setVideoId] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [error, setError] = useState(null);
 
-  // Match videos when component mounts or findings change
-  useEffect(() => {
-    const matched = matchVideosToFindings(findings, language);
-    setVideos(matched);
-    if (matched.length > 0) {
-      setActiveVideo(matched[0]);
-    }
-  }, [findings, language]);
+  const hasFindings = findings && findings.length > 0;
 
-  const handleVideoSelect = (video) => {
-    setActiveVideo(video);
-    setShowList(false);
+  const generateComprehensivePrompt = () => {
+    if (!findings || findings.length === 0) return '';
+
+    const conditions = findings.map(f => {
+      const name = f.item || 'Unknown condition';
+      const status = f.status || 'unknown';
+      const explanation = f.explanation || '';
+      return `- ${name} (${status}): ${explanation}`;
+    }).join('. ');
+
+    return `Create a clear, professional medical education video for patients.
+
+Topic: Explain these health conditions and what the patient needs to know: ${conditions}.
+
+Please cover in order:
+1. What each condition means in simple, everyday language
+2. What causes each condition
+3. What lifestyle changes and diet recommendations are important
+4. When to see a doctor immediately
+5. Important warning signs to watch for
+
+Style requirements:
+- Use clean, professional medical illustrations and diagrams
+- Include clear text overlays with key information
+- Use a calm, reassuring visual style
+- Do NOT use disturbing or abstract art
+- Keep visuals relevant and connected to the medical content
+- Use simple icons and diagrams to explain medical concepts
+- Include a summary at the end
+
+Video should be informative, easy to understand, and visually clean and professional.`;
   };
 
-  if (!findings || findings.length === 0) {
+  const handleGenerateVideo = async () => {
+    if (!hasFindings || generating) return;
+
+    setGenerating(true);
+    setError(null);
+    setGenerationProgress(0);
+    setVideoUrl(null);
+    setVideoId(null);
+
+    try {
+      const prompt = generateComprehensivePrompt();
+
+      if (!prompt) {
+        throw new Error('No findings available for video generation.');
+      }
+
+      const response = await createVideoTask({
+        prompt,
+        language,
+        finding: findings.map(f => f.item).join(', ')
+      });
+
+      const apiVideoId = response.video_id || response.id || response.task_id;
+
+      if (!apiVideoId) {
+        throw new Error('No video ID received from API.');
+      }
+
+      setVideoId(apiVideoId);
+      setGenerationProgress(10);
+
+      const result = await pollForVideoCompletion(apiVideoId, 90, 3000);
+
+      setGenerationProgress(90);
+
+      const url = result.remixed_from_video_id || result.video_url || result.url;
+
+      if (url) {
+        setVideoUrl(url);
+        setGenerationProgress(100);
+      } else {
+        throw new Error('Video generation completed but no URL was returned.');
+      }
+    } catch (err) {
+      console.error('Video generation failed:', err);
+      setError(err.message || 'Failed to generate video. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    setVideoUrl(null);
+    setVideoId(null);
+    setGenerationProgress(0);
+    setError(null);
+  }, [findings]);
+
+  if (!hasFindings) {
     return null;
   }
 
+  const highCount = findings.filter(f => f.severity === 'HIGH').length;
+  const borderlineCount = findings.filter(f => f.severity === 'BORDERLINE').length;
+  const normalCount = findings.filter(f => f.severity === 'NORMAL').length;
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 px-5 py-3 border-b border-purple-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
-              <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700">Video Explanations</h3>
-              <p className="text-xs text-gray-400">Watch to understand your condition better</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowList(!showList)}
-            className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-          >
-            {showList ? 'Hide' : 'Show All'}
-            <svg className={`w-3 h-3 transition-transform ${showList ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
             </svg>
-          </button>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-white">Video Explanation</h3>
+            <p className="text-sm text-white/80">AI-generated summary in {language}</p>
+          </div>
         </div>
       </div>
 
-      {/* Active Video Player */}
-      {activeVideo && (
-        <div className="p-4">
-          <VideoPlayer video={activeVideo} />
-        </div>
-      )}
-
-      {/* Video List */}
-      {showList && (
-        <div className="px-4 pb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {videos.map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                isActive={activeVideo?.id === video.id}
-                onClick={() => handleVideoSelect(video)}
-              />
-            ))}
+      {/* Content */}
+      <div className="p-6">
+        {/* Conditions Summary */}
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Your Conditions</h4>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {highCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-red-700 text-sm font-medium">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                {highCount} High Priority
+              </span>
+            )}
+            {borderlineCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-sm font-medium">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                {borderlineCount} Borderline
+              </span>
+            )}
+            {normalCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-sm font-medium">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                {normalCount} Normal
+              </span>
+            )}
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">{findings.length} condition{findings.length > 1 ? 's' : ''} detected:</span>{' '}
+              {findings.map(f => f.item).join(', ')}
+            </p>
           </div>
         </div>
-      )}
+
+        {/* Video Player or Generate Button */}
+        {videoUrl ? (
+          /* Video is ready */
+          <div className="rounded-xl overflow-hidden border border-gray-200 shadow-lg bg-black">
+            <div style={{ paddingTop: '56.25%', position: 'relative' }}>
+              <video
+                controls
+                autoPlay
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                src={videoUrl}
+              >
+                Your browser does not support video playback.
+              </video>
+            </div>
+            <div className="p-4 bg-gray-900 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">Your Health Explanation</h4>
+                  <p className="text-sm text-gray-400">Generated in {language}</p>
+                </div>
+                <button
+                  onClick={handleGenerateVideo}
+                  className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Regenerate
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : error ? (
+          /* Error state */
+          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+            <svg className="w-12 h-12 mx-auto mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-red-700 font-medium mb-2">Video Generation Failed</p>
+            <p className="text-sm text-red-500 mb-4">{error}</p>
+            <button
+              onClick={handleGenerateVideo}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : generating ? (
+          /* Generating - show animated progress */
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div style={{ paddingTop: '56.25%', position: 'relative', background: 'linear-gradient(to bottom right, #f5f3ff, #eef2ff, #faf5ff)' }}>
+              <div className="absolute inset-0 opacity-30">
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400 animate-pulse" />
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                <div className="relative mb-6">
+                  <div className="w-20 h-20 rounded-full border-4 border-white/30 border-t-white animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-violet-600" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">Creating Your Video</h4>
+                <p className="text-sm text-gray-600 mb-4 max-w-sm">
+                  AI is generating a personalized health explanation covering all {findings.length} condition{findings.length > 1 ? 's' : ''} in {language}
+                </p>
+                <div className="w-full max-w-xs bg-white/50 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${generationProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {generationProgress < 30 ? 'Analyzing conditions...' :
+                   generationProgress < 60 ? 'Creating visuals...' :
+                   generationProgress < 90 ? 'Rendering video...' : 'Almost done...'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Ready to generate - show preview */
+          <div className="rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
+            <div style={{ paddingTop: '56.25%', position: 'relative', background: 'linear-gradient(to bottom right, #f9fafb, #f3f4f6)' }}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mb-4 shadow-lg">
+                  <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">AI Video Explanation</h4>
+                <p className="text-sm text-gray-600 mb-1">
+                  Get a personalized video explaining your health conditions
+                </p>
+                <p className="text-xs text-gray-500 mb-6">
+                  Covers {findings.length} condition{findings.length > 1 ? 's' : ''} in {language}
+                </p>
+                <div className="grid grid-cols-2 gap-3 mb-6 max-w-sm w-full">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Condition explanations
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Lifestyle tips
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Diet recommendations
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    When to see doctor
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerateVideo}
+                  className="px-8 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-medium hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Generate Video Explanation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

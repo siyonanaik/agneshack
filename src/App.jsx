@@ -423,10 +423,11 @@ function App() {
                 language={language}
               />
               
-              {/* Roadmap/Mindmap */}
+              {/* Health Roadmap - Lifestyle, Timeline, Actions */}
               <RoadmapView 
                 aiResponse={aiResponse} 
                 profile={profileData}
+                language={language}
               />
             </div>
           )}

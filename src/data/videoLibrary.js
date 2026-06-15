@@ -1,5 +1,6 @@
 // Educational video library for common medical conditions
-// Videos are organized by condition category for easy matching with AI analysis findings
+// All videos are AI-generated via Agnes Video API - no external video sources needed
+// The URL field is used as a prompt context for AI video generation
 
 export const VIDEO_LIBRARY = [
   // Diabetes
@@ -9,32 +10,34 @@ export const VIDEO_LIBRARY = [
     description: 'Learn what diabetes is, how it affects your body, and what you can do to manage it.',
     category: 'Diabetes',
     keywords: ['diabetes', 'sugar', 'glucose', 'hba1c', 'blood sugar'],
-    duration: '5:30',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/ok-M1c67Ylk', // Placeholder - replace with actual video URL
+    url: null, // Will be AI-generated
     thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
   {
     id: 'diabetes-bengali',
-    title: 'মধুমেহ সম্পর্কে জানুন (Understanding Diabetes - Bengali)',
-    description: 'ডায়াবেটিস কী এবং এটি কীভাবে আপনার শরীরকে প্রভাবিত করে।',
+    title: 'মধুমেহ বুঝিই (Understanding Diabetes - Bengali)',
+    description: 'ডায়াবেটিস কী এবং এটি আপনার শরীরকে কীভাবে প্রভাবিত করে।',
     category: 'Diabetes',
-    keywords: ['diabetes', 'sugar', 'glucose', 'hba1c', 'blood sugar', 'মধুমেহ', 'ডায়াবেটিস'],
-    duration: '6:00',
+    keywords: ['diabetes', 'sugar', 'glucose', 'hba1c', 'blood sugar'],
+    duration: '5:00',
     language: 'Bengali',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
   {
     id: 'diabetes-tamil',
     title: 'சர்க்கரை நோயை புரிந்து கொள்ளுங்கள் (Understanding Diabetes - Tamil)',
-    description: 'சர்க்கரை நோய் என்பது என்ன மற்றும் இது உங்கள் உடலை எவ்வாறு பாதிக்கிறது.',
+    description: 'சர்க்கரை நோய் என்றால் என்ன மற்றும் இது உங்கள் உடலை எவ்வாறு பாதிக்கிறது.',
     category: 'Diabetes',
     keywords: ['diabetes', 'sugar', 'glucose', 'hba1c', 'blood sugar'],
-    duration: '5:45',
+    duration: '5:00',
     language: 'Tamil',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -45,9 +48,10 @@ export const VIDEO_LIBRARY = [
     description: 'Learn about hypertension, its risks, and lifestyle changes to help control it.',
     category: 'Hypertension',
     keywords: ['blood pressure', 'hypertension', 'bp', 'systolic', 'diastolic', 'pressure'],
-    duration: '4:45',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -60,7 +64,8 @@ export const VIDEO_LIBRARY = [
     keywords: ['cholesterol', 'hdl', 'ldl', 'lipid', 'fat', 'triglyceride'],
     duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -71,9 +76,10 @@ export const VIDEO_LIBRARY = [
     description: 'What causes anemia, its symptoms, and how to improve your iron levels through diet.',
     category: 'Anemia',
     keywords: ['anemia', 'iron', 'hemoglobin', 'hb', 'blood count'],
-    duration: '4:30',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -84,9 +90,10 @@ export const VIDEO_LIBRARY = [
     description: 'Learn about TSH, thyroid hormones, and how thyroid affects your overall health.',
     category: 'Thyroid',
     keywords: ['thyroid', 'tsh', 't3', 't4', 'hormone'],
-    duration: '5:15',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -97,9 +104,10 @@ export const VIDEO_LIBRARY = [
     description: 'Understanding asthma triggers, using inhalers correctly, and staying active.',
     category: 'Asthma',
     keywords: ['asthma', 'breathing', 'inhaler', 'lungs', 'respiratory'],
-    duration: '4:50',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -110,9 +118,10 @@ export const VIDEO_LIBRARY = [
     description: 'What your liver enzymes tell you and how to keep your liver healthy.',
     category: 'Liver',
     keywords: ['liver', 'enzyme', 'alt', 'ast', 'bilirubin', 'hepatitis'],
-    duration: '5:30',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -125,7 +134,8 @@ export const VIDEO_LIBRARY = [
     keywords: ['kidney', 'creatinine', 'urea', 'urine', 'renal', 'egfr'],
     duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['HIGH', 'BORDERLINE'],
   },
 
@@ -136,9 +146,10 @@ export const VIDEO_LIBRARY = [
     description: 'Simple daily habits to improve your health, stay clean, and prevent illness.',
     category: 'General Health',
     keywords: ['health', 'hygiene', 'clean', 'wellness', 'prevent', 'diet', 'exercise'],
-    duration: '6:00',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['NORMAL', 'BORDERLINE', 'HIGH'],
   },
   {
@@ -147,9 +158,10 @@ export const VIDEO_LIBRARY = [
     description: 'Affordable and nutritious food choices to stay healthy and energetic at work.',
     category: 'Nutrition',
     keywords: ['nutrition', 'food', 'diet', 'protein', 'vitamin', 'iron', 'healthy'],
-    duration: '5:30',
+    duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['NORMAL', 'BORDERLINE', 'HIGH'],
   },
   {
@@ -160,7 +172,8 @@ export const VIDEO_LIBRARY = [
     keywords: ['stress', 'mental', 'sleep', 'anxiety', 'wellness', 'depression'],
     duration: '5:00',
     language: 'English',
-    url: 'https://www.youtube.com/embed/example',
+    url: null, // Will be AI-generated
+    thumbnail: null,
     severity: ['NORMAL', 'BORDERLINE', 'HIGH'],
   },
 ];
@@ -170,7 +183,7 @@ export const DEFAULT_VIDEO = {
   id: 'general-health-tips',
   title: 'Basic Health & Hygiene Tips',
   description: 'Simple daily habits to improve your health, stay clean, and prevent illness.',
-  url: 'https://www.youtube.com/embed/example',
+  url: null, // Will be AI-generated
 };
 
 /**
