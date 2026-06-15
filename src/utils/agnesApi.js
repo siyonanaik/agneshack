@@ -43,9 +43,11 @@ Rules:
  * Sends extracted text to Agnes AI model for processing.
  * @param {string} extractedText - The text content to send to the model.
  * @param {string} language - The language for the model to respond in (e.g., "English", "Mandarin").
+ * @param {object} options - Optional parameters.
+ * @param {string[]} options.healthConcerns - User's self-reported health concerns/symptoms.
  * @returns {Promise<object>} - Parsed JSON response with summary, findings, questions, and disclaimer.
  */
-async function sendToAgnes(extractedText, language) {
+async function sendToAgnes(extractedText, language, options = {}) {
   // Validate inputs
   if (!extractedText || typeof extractedText !== 'string') {
     throw new Error('extractedText must be a non-empty string.');
@@ -60,11 +62,27 @@ async function sendToAgnes(extractedText, language) {
   const systemPrompt = buildSystemPrompt(language);
 
   // Build the request body using OpenAI-compatible chat completions format
+  let userContent = extractedText;
+  
+  // Add health concerns context if provided
+  const healthConcerns = options?.healthConcerns || [];
+  if (healthConcerns && healthConcerns.length > 0) {
+    userContent = `
+PATIENT'S HEALTH CONCERNS & SYMPTOMS:
+${healthConcerns.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+---
+
+MEDICAL REPORT TEXT TO ANALYZE:
+${extractedText}
+`;
+  }
+
   const requestBody = {
     model: MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: extractedText }
+      { role: 'user', content: userContent }
     ],
     response_format: { type: 'json_object' }
   };

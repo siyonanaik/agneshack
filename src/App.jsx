@@ -6,6 +6,7 @@ import PatientHistory from './components/PatientHistory';
 import CameraScanner from './components/CameraScanner';
 import VideoExplanation from './components/VideoExplanation';
 import RoadmapView from './components/RoadmapView';
+import PrepareForClinic from './components/PrepareForClinic';
 import sendToAgnes from './utils/agnesApi';
 import { saveToHistory, getSavedLanguage, saveLanguage, clearHistory } from './utils/storage';
 import { getProfile } from './utils/profile';
@@ -46,6 +47,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [language, setLanguage] = useState(() => getSavedLanguage());
+  const [healthConcerns, setHealthConcerns] = useState([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -73,7 +75,8 @@ function App() {
     setErrorMessage(null);
     setAppState('analyzing');
 
-    sendToAgnes(text, language)
+    // Send to Agnes with health concerns context
+    sendToAgnes(text, language, { healthConcerns })
       .then((response) => {
         if (!response || typeof response !== 'object') {
           setAppState('error');
@@ -117,6 +120,7 @@ function App() {
     setAiResponse(null);
     setErrorMessage(null);
     setFileName(null);
+    setHealthConcerns([]);
   }, []);
 
   // Handle selecting a history entry
@@ -324,7 +328,7 @@ function App() {
 
           {/* State: Idle - Show Upload Zone */}
           {appState === 'idle' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Hero Section */}
               <div className="text-center max-w-lg mx-auto">
                 <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-medium px-3 py-1 rounded-full mb-4">
@@ -337,6 +341,25 @@ function App() {
                 <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                   {t(language, 'uploadSubtitle')}
                 </p>
+              </div>
+
+              {/* Health Concerns Section */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-3 border-b border-indigo-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                    <h3 className="text-sm font-semibold text-indigo-700">{t(language, 'healthConcerns')}</h3>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-gray-500 mb-4">{t(language, 'healthConcernsSubtitle')}</p>
+                  <PrepareForClinic
+                    healthConcerns={healthConcerns}
+                    setHealthConcerns={setHealthConcerns}
+                    language={language}
+                    aiResponse={aiResponse}
+                  />
+                </div>
               </div>
 
               {/* Upload Zone */}
@@ -417,6 +440,30 @@ function App() {
                 onDownloadPNG={handleDownloadPNG}
                 exportCardRef={exportCardRef}
               />
+
+              {/* Questions for Your Doctor - Displayed separately */}
+              {aiResponse.questions && aiResponse.questions.length > 0 && (
+                <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-3 border-b border-indigo-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <h3 className="text-sm font-semibold text-indigo-700">{t(language, 'questionsForDoctor')}</h3>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <ol className="space-y-3">
+                      {aiResponse.questions.map((question, index) => (
+                        <li key={index} className="flex items-start gap-3">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs font-semibold flex items-center justify-center mt-0.5">
+                            {index + 1}
+                          </span>
+                          <p className="text-sm text-gray-700 leading-relaxed">{question}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              )}
               
               {/* Video Explanations */}
               <VideoExplanation 
@@ -470,7 +517,7 @@ function App() {
                             setAiResponse(null);
                             setErrorMessage(null);
                             setAppState('analyzing');
-                            sendToAgnes(extractedText, language)
+                            sendToAgnes(extractedText, language, { healthConcerns })
                               .then((response) => {
                                 setAiResponse(response);
                                 setAppState('success');
