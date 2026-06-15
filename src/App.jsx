@@ -352,7 +352,6 @@ function App() {
                   </div>
                 </div>
                 <div className="p-5">
-                  <p className="text-sm text-gray-500 mb-4">{t(language, 'healthConcernsSubtitle')}</p>
                   <PrepareForClinic
                     healthConcerns={healthConcerns}
                     setHealthConcerns={setHealthConcerns}
