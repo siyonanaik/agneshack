@@ -1,9 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import UploadZone from './components/UploadZone';
 import ResultsDisplay from './components/ResultsDisplay';
-import HistoryPanel from './components/HistoryPanel';
+import ProfileSettings from './components/ProfileSettings';
+import PatientHistory from './components/PatientHistory';
+import CameraScanner from './components/CameraScanner';
+import VideoExplanation from './components/VideoExplanation';
+import RoadmapView from './components/RoadmapView';
 import sendToAgnes from './utils/agnesApi';
-import { saveToHistory, getHistory, getSavedLanguage, saveLanguage, clearHistory } from './utils/storage';
+import { saveToHistory, getSavedLanguage, saveLanguage, clearHistory } from './utils/storage';
+import { getProfile } from './utils/profile';
 
 // Supported languages for MediClear
 const SUPPORTED_LANGUAGES = [
@@ -40,18 +45,29 @@ function App() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [language, setLanguage] = useState(() => getSavedLanguage());
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [patientHistoryOpen, setPatientHistoryOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [profileData, setProfileData] = useState(null);
   const exportCardRef = useRef(null);
+
+  // Load profile on mount
+  useEffect(() => {
+    const savedProfile = getProfile();
+    if (savedProfile) {
+      setProfileData(savedProfile);
+    }
+  }, []);
 
   // Persist language to localStorage whenever it changes
   useEffect(() => {
     saveLanguage(language);
   }, [language]);
 
-  // Handle when text is extracted from upload zone
+  // Handle when text is extracted from upload zone or camera
   const handleTextExtracted = useCallback((text, name) => {
     setExtractedText(text);
-    setFileName(name);
+    setFileName(name || 'Camera Capture');
     setAiResponse(null);
     setErrorMessage(null);
     setAppState('analyzing');
@@ -69,7 +85,7 @@ function App() {
 
         saveToHistory({
           id: generateId(),
-          fileName: name,
+          fileName: name || 'Camera Capture',
           date: new Date().toISOString(),
           resultPreview: response.summary?.substring(0, 150) + (response.summary?.length > 150 ? '...' : '') || 'Analysis complete',
           fullResponse: response,
@@ -120,11 +136,17 @@ function App() {
     setLanguage(entry.language || 'English');
     setAppState('success');
     setExtractedText(null);
+    setPatientHistoryOpen(false);
   }, []);
 
   // Handle clear all history
   const handleClearHistory = useCallback(() => {
     clearHistory();
+  }, []);
+
+  // Handle profile save
+  const handleProfileSave = useCallback((profile) => {
+    setProfileData(profile);
   }, []);
 
   // Handle download to PNG
@@ -176,15 +198,34 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      {/* History Panel */}
-      <HistoryPanel
-        isOpen={historyOpen}
-        onToggle={() => setHistoryOpen(!historyOpen)}
-        onClearAll={handleClearHistory}
+      {/* Profile Settings Modal */}
+      <ProfileSettings
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onSave={handleProfileSave}
+        profileData={profileData}
       />
 
+      {/* Patient History Panel */}
+      <PatientHistory
+        isOpen={patientHistoryOpen}
+        onClose={() => setPatientHistoryOpen(false)}
+        onSelectEntry={handleHistorySelect}
+      />
+
+      {/* Camera Scanner Full Screen */}
+      {cameraOpen && (
+        <CameraScanner
+          onTextExtracted={(text, name) => {
+            setCameraOpen(false);
+            handleTextExtracted(text, name);
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
-      <div className={`${historyOpen ? 'ml-80' : ''} transition-all duration-200`}>
+      <div className="transition-all duration-200">
         {/* Header */}
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 sticky top-0 z-30">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -200,8 +241,46 @@ function App() {
               </div>
             </div>
 
-            {/* Language Toggle */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-2">
+              {/* Camera Button */}
+              <button
+                onClick={() => setCameraOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all duration-200 text-xs font-medium shadow-sm"
+                title="Scan documents with camera"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="hidden sm:inline">Scan</span>
+              </button>
+
+              {/* Profile Button */}
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
+                title="Patient Profile"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="hidden sm:inline">Profile</span>
+              </button>
+
+              {/* History Button */}
+              <button
+                onClick={() => setPatientHistoryOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
+                title="View History"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="hidden sm:inline">History</span>
+              </button>
+
+              {/* Language Toggle */}
               <div className="hidden sm:flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
                 <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.52 18.52 0 0112 13a18.52 18.52 0 01-3.048.5" />
@@ -327,15 +406,29 @@ function App() {
 
           {/* State: Success - Show Results */}
           {appState === 'success' && aiResponse && (
-            <ResultsDisplay
-              aiResponse={aiResponse}
-              fileName={fileName}
-              language={language}
-              onReset={handleReset}
-              onCopy={() => {}}
-              onDownloadPNG={handleDownloadPNG}
-              exportCardRef={exportCardRef}
-            />
+            <div className="space-y-6">
+              <ResultsDisplay
+                aiResponse={aiResponse}
+                fileName={fileName}
+                language={language}
+                onReset={handleReset}
+                onCopy={() => {}}
+                onDownloadPNG={handleDownloadPNG}
+                exportCardRef={exportCardRef}
+              />
+              
+              {/* Video Explanations */}
+              <VideoExplanation 
+                findings={aiResponse.findings || []} 
+                language={language}
+              />
+              
+              {/* Roadmap/Mindmap */}
+              <RoadmapView 
+                aiResponse={aiResponse} 
+                profile={profileData}
+              />
+            </div>
           )}
 
           {/* State: Error - Show Error State */}
